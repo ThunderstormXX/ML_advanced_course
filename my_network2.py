@@ -8,13 +8,14 @@ import math
 import time
 
 class Encoder(nn.Module):
-    def __init__(self, input_dim, emb_dim, hid_dim, n_layers, dropout):
+    def __init__(self, input_dim, emb_dim, hid_dim, n_layers, dropout , bidirectional = False):
         super().__init__()
         
         self.input_dim = input_dim
         self.emb_dim = emb_dim
         self.hid_dim = hid_dim
         self.n_layers = n_layers
+        self.bidirectional = bidirectional
         self.embedding = nn.Embedding(
             num_embeddings=input_dim,
             embedding_dim=emb_dim
@@ -23,7 +24,8 @@ class Encoder(nn.Module):
             input_size=emb_dim,
             hidden_size=hid_dim,
             num_layers=n_layers,
-            dropout=dropout
+            dropout=dropout ,
+            bidirectional=bidirectional
         )
         self.dropout = nn.Dropout(p=dropout)# <YOUR CODE HERE>
         
@@ -31,6 +33,10 @@ class Encoder(nn.Module):
         embedded = self.embedding(src)# <YOUR CODE HERE>
         embedded = self.dropout(embedded)
         output, hidden = self.rnn(embedded)
+        if self.bidirectional :
+            output = output[:,:,-output.shape[2]//2:]
+            hidden = (hidden[0][1:,:,:], hidden[1][1:,:,:] )
+        # print(output.shape , hidden[0].shape , hidden[1].shape)
         return output , hidden
 
 class BahdanauAttention(nn.Module):
@@ -90,6 +96,8 @@ class Decoder(nn.Module):
         input_rnn = torch.cat((embedded, context), dim=2)
         # print('input rnn decoder: input ',input_rnn.shape)
         # print('input rnn decoder: hidden',hidden[0].shape , hidden[1].shape)
+
+
         output, hidden = self.rnn( input_rnn , hidden )
         prediction = self.out(output.squeeze(0))
         return prediction, hidden
