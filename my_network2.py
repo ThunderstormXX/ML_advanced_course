@@ -57,14 +57,14 @@ class BahdanauAttention(nn.Module):
     
 
 class Decoder(nn.Module):
-    def __init__(self, output_dim, emb_dim, hid_dim, n_layers, dropout, att = True):
+    def __init__(self, output_dim, emb_dim, hid_dim, n_layers, dropout, without_attention = False):
         super().__init__()
         self.emb_dim = emb_dim
         self.hid_dim = hid_dim
         self.output_dim = output_dim
         self.n_layers = n_layers
         self.dropout = dropout
-        self.att = att
+        self.without_attention = without_attention
 
         self.embedding = nn.Embedding(
             num_embeddings=output_dim,
@@ -80,7 +80,7 @@ class Decoder(nn.Module):
             in_features=hid_dim,
             out_features=output_dim
         )
-        if att :
+        if not without_attention :
             self.attention = BahdanauAttention(hid_dim)
         self.dropout = nn.Dropout(p=dropout)# <YOUR CODE HERE>
     def forward(self, input, encoder_output , hidden):
@@ -91,11 +91,11 @@ class Decoder(nn.Module):
         encoder_output = encoder_output.permute(1,0,2)
         # print('attention input: query ',query.shape)
         # print('attention input: encoder output ',encoder_output.shape)
-        if self.att :
+        if not self.without_attention :
             context, attn_weights = self.attention(query,encoder_output )
             context = context.permute(1,0,2)
         else :
-            context = torch.sum(encoder_output, dim=1).unsqueeze(0)
+            context = encoder_output.permute(1,0,2)
         # print('attention output: embedded and context',embedded.shape, context.shape)
         
         input_rnn = torch.cat((embedded, context), dim=2)
@@ -108,11 +108,12 @@ class Decoder(nn.Module):
         return prediction, hidden
 
 class Seq2Seq(nn.Module):
-    def __init__(self, encoder, decoder ,device):
+    def __init__(self, encoder, decoder ,device , without_attention=False):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.device = device
+        self.without_attention = without_attention
         
     def forward(self, src, trg, teacher_forcing_ratio = 0.5):
         batch_size = trg.shape[1]
@@ -120,6 +121,9 @@ class Seq2Seq(nn.Module):
         trg_vocab_size = self.decoder.output_dim
         outputs = torch.zeros(max_len, batch_size, trg_vocab_size).to(self.device)
         encoder_output ,hidden = self.encoder(src)
+        if self.without_attention :
+            encoder_output = torch.sum(encoder_output, dim=0).unsqueeze(0)
+            # print(encoder_output.shape)
         input = trg[0,:]
         
         for t in range(1, max_len):
