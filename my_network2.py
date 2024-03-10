@@ -51,19 +51,21 @@ class BahdanauAttention(nn.Module):
         scores = self.Va(torch.tanh(self.Wa(query) + self.Ua(keys)))
         scores = scores.squeeze(2).unsqueeze(1)
         weights = F.softmax(scores, dim=-1)
+        print(weights.shape)
         context = torch.bmm(weights, keys)
         return context, weights
     
 
 class Decoder(nn.Module):
-    def __init__(self, output_dim, emb_dim, hid_dim, n_layers, dropout):
+    def __init__(self, output_dim, emb_dim, hid_dim, n_layers, dropout, att = True):
         super().__init__()
         self.emb_dim = emb_dim
         self.hid_dim = hid_dim
         self.output_dim = output_dim
         self.n_layers = n_layers
         self.dropout = dropout
-        
+        self.att = att
+
         self.embedding = nn.Embedding(
             num_embeddings=output_dim,
             embedding_dim=emb_dim
@@ -78,7 +80,8 @@ class Decoder(nn.Module):
             in_features=hid_dim,
             out_features=output_dim
         )
-        self.attention = BahdanauAttention(hid_dim)
+        if att :
+            self.attention = BahdanauAttention(hid_dim)
         self.dropout = nn.Dropout(p=dropout)# <YOUR CODE HERE>
     def forward(self, input, encoder_output , hidden):
         input = input.unsqueeze(0)
@@ -88,10 +91,12 @@ class Decoder(nn.Module):
         encoder_output = encoder_output.permute(1,0,2)
         # print('attention input: query ',query.shape)
         # print('attention input: encoder output ',encoder_output.shape)
-        
-        context, attn_weights = self.attention(query,encoder_output )
+        if self.att :
+            context, attn_weights = self.attention(query,encoder_output )
+            context = context.permute(1,0,2)
+        else :
+            context = torch.sum(encoder_output, dim=1).unsqueeze(0)
         # print('attention output: embedded and context',embedded.shape, context.shape)
-        context = context.permute(1,0,2)
         
         input_rnn = torch.cat((embedded, context), dim=2)
         # print('input rnn decoder: input ',input_rnn.shape)
