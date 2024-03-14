@@ -51,7 +51,7 @@ class BahdanauAttention(nn.Module):
         scores = self.Va(torch.tanh(self.Wa(query) + self.Ua(keys)))
         scores = scores.squeeze(2).unsqueeze(1)
         weights = F.softmax(scores, dim=-1)
-        print(weights.shape)
+        # print(weights.shape)
         context = torch.bmm(weights, keys)
         return context, weights
     
